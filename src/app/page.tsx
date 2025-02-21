@@ -30,31 +30,32 @@ export default function Home() {
   }, []);
 
   const fetchSearchHistory = async () => {
+    if (!getUserId()) return;
+    
+    setLoadingHistory(true);
     try {
-      const userId = getUserId();
-      if (!userId) {
-        setLoadingHistory(false);
-        return;
-      }
+      const response = await fetch('/api/history', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      setLoadingHistory(true);
-      const response = await fetch(`/api/history?userId=${userId}`);
-      
       if (!response.ok) {
-        throw new Error('Failed to fetch history');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      if (data.status === API_STATUS.SUCCESS && Array.isArray(data.data)) {
-        setSearchHistory(data.data);
+      if (data.status === API_STATUS.SUCCESS) {
+        setSearchHistory(data.data || []);
       } else {
-        console.error('Invalid history response:', data);
+        console.error('History fetch error:', data);
         setSearchHistory([]);
       }
     } catch (error) {
-      console.error('Error fetching search history:', error);
+      console.error('Error fetching history:', error);
       setSearchHistory([]);
+      // Don't show error toast for history fetch failures
     } finally {
       setLoadingHistory(false);
     }
@@ -100,7 +101,7 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -114,8 +115,11 @@ export default function Home() {
           setResult(null);
           toast.success('Không tìm thấy thông tin vi phạm');
         }
+        // Only fetch history on successful search
+        await fetchSearchHistory().catch(err => {
+          console.error('Error updating history after search:', err);
+        });
       } else {
-        // Log the actual error response
         console.error('API Error:', {
           status: data.status,
           message: data.message,
@@ -124,16 +128,10 @@ export default function Home() {
         toast.error(data.message || 'Hệ thống đang nâng cấp, vui lòng thử lại sau');
         setResult(null);
       }
-
-      // Always fetch search history after any search attempt
-      await fetchSearchHistory();
-
     } catch (error) {
       console.error('Search Error:', error);
       toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
       setResult(null);
-      // Still fetch history even if search failed
-      await fetchSearchHistory();
     } finally {
       setSearchPerformed(true);
       setLoading(false);
