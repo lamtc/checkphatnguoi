@@ -23,13 +23,23 @@ export async function POST(req: Request) {
     const response = await fetch(API_ENDPOINTS.VIOLATION_SEARCH, {
       method: 'POST',
       headers: {
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
         'Content-Type': 'application/json',
+        'Origin': 'https://checkphatnguoi.vn',
+        'Referer': 'https://checkphatnguoi.vn/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
-      body: raw
+      body: raw,
+      cache: 'no-cache',
+      credentials: 'omit'
     });
 
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();

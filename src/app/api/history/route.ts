@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { API_STATUS, API_MESSAGES } from '@/config/api';
-import { MAX_HISTORY_ITEMS } from '@/config/database';
 
 export async function GET(req: Request) {
   try {
@@ -9,10 +8,11 @@ export async function GET(req: Request) {
     const userId = searchParams.get('userId');
 
     if (!userId) {
-      return NextResponse.json({ error: API_MESSAGES.USER_REQUIRED }, { status: 400 });
+      return NextResponse.json({ 
+        status: API_STATUS.ERROR,
+        message: API_MESSAGES.USER_REQUIRED 
+      });
     }
-
-    console.log('Fetching history for userId:', userId); // Debug log
 
     const history = await prisma.searchHistory.findMany({
       where: {
@@ -21,21 +21,20 @@ export async function GET(req: Request) {
       orderBy: {
         createdAt: 'desc'
       },
-      take: MAX_HISTORY_ITEMS
+      take: 10
     });
-
-    console.log('Found history items:', history.length); // Debug log
 
     return NextResponse.json({
       status: API_STATUS.SUCCESS,
       data: history
     });
+
   } catch (error) {
     console.error('Error fetching history:', error);
     return NextResponse.json({ 
-      status: API_STATUS.ERROR, 
+      status: API_STATUS.ERROR,
       message: API_MESSAGES.SYSTEM_ERROR,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      data: []
     });
   }
 }

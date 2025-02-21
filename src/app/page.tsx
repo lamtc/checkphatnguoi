@@ -38,16 +38,21 @@ export default function Home() {
       }
 
       const response = await fetch(`/api/history?userId=${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch history');
+      }
+
       const data = await response.json();
       
       if (data.status === API_STATUS.SUCCESS && Array.isArray(data.data)) {
         setSearchHistory(data.data);
       } else {
-        toast.error('Không thể tải lịch sử tra cứu');
+        console.error('Invalid history response:', data);
+        setSearchHistory([]);
       }
     } catch (error) {
       console.error('Error fetching search history:', error);
-      toast.error('Không thể tải lịch sử tra cứu');
+      setSearchHistory([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -76,6 +81,7 @@ export default function Home() {
     setLoading(true);
 
     try {
+      // Format license plate exactly as original
       const formattedPlateNumber = plateNumber.replace(/[\s\-\.]/g, '').toUpperCase();
       
       const response = await fetch('/api/search', {
@@ -101,13 +107,15 @@ export default function Home() {
         if (len > 0) {
           setResult(data);
           setLastUpdated(data.lastUpdated);
+          // Refresh history after successful search
           await fetchSearchHistory();
         } else {
           setResult(null);
         }
         setSearchPerformed(true);
       } else {
-        toast.error('Không tìm thấy thông tin vi phạm');
+        console.error('API Error:', data);
+        toast.error(data.message || 'Không tìm thấy thông tin vi phạm');
         setResult(null);
         setSearchPerformed(true);
       }
