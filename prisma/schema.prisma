@@ -1,0 +1,29 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LicensePlateSearch {
+  id        Int      @id @default(autoincrement())
+  plateNumber String
+  searchedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+}
+
+model SearchHistory {
+  id          Int      @id @default(autoincrement())
+  userId      String   // Add this field to track per-user history
+  plateNumber String
+  hasResults  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([plateNumber])
+  @@index([userId]) // Add an index for better query performance
+}

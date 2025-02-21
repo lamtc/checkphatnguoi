@@ -1,7 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+const config: NextConfig = {
+  reactStrictMode: true,
+  output: 'standalone', // Optimizes for production deployment
+  poweredByHeader: false, // Security: remove X-Powered-By header
+}
 
-export default nextConfig;
+export default config
