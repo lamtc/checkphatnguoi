@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { API_STATUS, API_MESSAGES } from '@/config/api';
-import { PROXY_URL, getProxyHeaders } from '@/config/proxy';
+import { PROXY_URL, getProxyHeaders, parseProxyResponse } from '@/config/proxy';
 
 export async function POST(req: Request) {
   let userId, plateNumber;
@@ -41,10 +41,14 @@ export async function POST(req: Request) {
     });
 
     try {
+      const requestBody = process.env.NODE_ENV === 'production' 
+        ? JSON.stringify({ data: raw })  // For allorigins POST endpoint
+        : raw;
+
       const response = await fetch(PROXY_URL, {
         method: 'POST',
         headers: getProxyHeaders(),
-        body: raw,
+        body: requestBody,
         cache: 'no-store'
       });
 
@@ -59,9 +63,6 @@ export async function POST(req: Request) {
         throw new Error(`External API HTTP error! status: ${response.status}`);
       }
 
-      const contentType = response.headers.get('content-type');
-      console.log('Response content type:', contentType);
-
       const text = await response.text();
       console.log('Raw response text:', text.substring(0, 200)); // First 200 chars
 
@@ -69,15 +70,9 @@ export async function POST(req: Request) {
         throw new Error('Empty response from external API');
       }
 
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error('JSON Parse Error:', {
-          error: parseError,
-          text: text.substring(0, 200) // Log first 200 chars of response
-        });
-        throw new Error('Invalid JSON response from external API');
+      const data = parseProxyResponse(text);
+      if (!data) {
+        throw new Error('Failed to parse API response');
       }
 
       console.log('Parsed API Response data:', data);
