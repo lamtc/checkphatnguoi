@@ -19,7 +19,7 @@ model LicensePlateSearch {
 
 model SearchHistory {
   id          Int      @id @default(autoincrement())
-  userId      String   // Add this field to track per-user history
+  userId      String   // Changed from Int to String
   plateNumber String
   hasResults  Boolean  @default(false)
   createdAt   DateTime @default(now())

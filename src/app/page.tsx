@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { validateLicensePlate } from '@/utils/validation';
-import { getUserId } from '@/utils/user';
+import { ViolationResponse, ViolationData } from '@/types/api';
 
 interface SearchHistoryItem {
   id: number;
@@ -16,7 +16,7 @@ interface SearchHistoryItem {
 export default function Home() {
   const [plateNumber, setPlateNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ViolationResponse | null>(null);
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
@@ -30,10 +30,7 @@ export default function Home() {
 
   const fetchSearchHistory = async () => {
     try {
-      const userId = getUserId();
-      if (!userId) return;
-
-      const response = await fetch(`/api/history?userId=${userId}`);
+      const response = await fetch('/api/history');
       const data = await response.json();
       if (data.status === 1) {
         setSearchHistory(data.data);
@@ -85,7 +82,7 @@ export default function Home() {
         }),
       });
 
-      const data = await response.json();
+      const data: ViolationResponse = await response.json();
       
       if (data.status === 1) {
         setResult(data);
@@ -270,7 +267,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {result.data?.map((violation: any, index: number) => (
+                  {result.data?.map((violation: ViolationData, index: number) => (
                     <div key={index} className="card mb-3">
                       <div className="card-body">
                         <div className="row mb-3">

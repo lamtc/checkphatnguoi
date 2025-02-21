@@ -7,40 +7,52 @@ const VALID_AREA_CODES = [
   '89', '90', '92', '93', '94', '95', '97', '98', '99'
 ];
 
-export function validateLicensePlate(plate: string): { isValid: boolean; error?: string } {
-  // Remove all spaces, dots and convert to uppercase
-  const cleanPlate = plate.replace(/[\s.-]/g, '').toUpperCase();
+interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
 
-  // Basic format check
-  if (!cleanPlate) {
-    return { isValid: false, error: 'Vui lòng nhập biển số xe' };
-  }
-
-  // Check length
-  if (cleanPlate.length < 7 || cleanPlate.length > 9) {
-    return { isValid: false, error: 'Biển số xe không hợp lệ' };
-  }
-
-  // Extract area code (first 2 digits)
-  const areaCode = cleanPlate.substring(0, 2);
-
-  // Check if area code is valid
-  if (!VALID_AREA_CODES.includes(areaCode)) {
-    return { isValid: false, error: 'Mã vùng biển số không hợp lệ' };
-  }
-
-  // Check format based on length
-  const remainingPart = cleanPlate.substring(2);
-  
-  // For 7-8 characters (XXA + XXXXX or XXAB + XXXXX)
-  const pattern7_8 = /^[A-Z]{1,2}\d{5}$/;
-  
-  if (!pattern7_8.test(remainingPart)) {
-    return { 
-      isValid: false, 
-      error: 'Biển số xe không đúng định dạng. Định dạng hợp lệ: XXAB.XXXXX, XXA.XXXXX, XXABXXXXX, hoặc XXAXXXXX (X là số, A/B là chữ)' 
+export const validateLicensePlate = (plateNumber: string): ValidationResult => {
+  if (!plateNumber) {
+    return {
+      isValid: false,
+      error: 'Vui lòng nhập biển số xe'
     };
   }
 
-  return { isValid: true };
+  // Remove spaces, dots, and hyphens
+  const cleanPlateNumber = plateNumber.replace(/[ .-]/g, '').toUpperCase();
+
+  // Regular expressions for different license plate formats
+  const formats = [
+    /^\d{2}[A-Z]\d{5}$/, // Format: 51F12345
+    /^\d{2}[A-Z][A-Z]\d{5}$/, // Format: 51AB12345
+    /^\d{2}[A-Z]\d{4}$/, // Format: 51F1234
+    /^\d{2}[A-Z][A-Z]\d{4}$/ // Format: 51AB1234
+  ];
+
+  // Check if the plate number matches any of the valid formats
+  const isValidFormat = formats.some(format => format.test(cleanPlateNumber));
+
+  if (!isValidFormat) {
+    return {
+      isValid: false,
+      error: 'Biển số không đúng định dạng'
+    };
+  }
+
+  // Extract area code (first 2 digits)
+  const areaCode = cleanPlateNumber.substring(0, 2);
+
+  // Check if area code is valid
+  if (!VALID_AREA_CODES.includes(areaCode)) {
+    return { 
+      isValid: false, 
+      error: 'Mã vùng biển số không hợp lệ' 
+    };
+  }
+
+  return {
+    isValid: true
+  };
 }
