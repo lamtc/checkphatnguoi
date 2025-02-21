@@ -55,27 +55,49 @@ export default function Home() {
       // Format license plate exactly as original
       const formattedPlateNumber = plateNumber.replace(/[\s\-\.]/g, '').toUpperCase();
       
-      console.log('Submitting search for:', formattedPlateNumber);
+      const requestInfo = {
+        plateNumber: formattedPlateNumber,
+        userId
+      };
+      console.log('Making API request:', requestInfo);
       
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          plateNumber: formattedPlateNumber,
-          userId 
-        }),
+        body: JSON.stringify(requestInfo),
       });
 
-      const data = await response.json();
-      console.log('Search API Response:', {
-        status: response.status,
-        ok: response.ok,
-        data: data
-      });
+      const responseText = await response.text();
       
-      if (data.status === API_STATUS.SUCCESS) {
+      try {
+        console.log('API Response:', {
+          status: response.status,
+          text: responseText.substring(0, 200) // First 200 chars
+        });
+      } catch (logError) {
+        console.log('Failed to log response');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        const errorInfo = {
+          type: 'Parse Error',
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          responsePreview: responseText.substring(0, 200)
+        };
+        console.log('Parse error:', errorInfo);
+        toast.error('Hệ thống đang gặp sự cố. Vui lòng thử lại sau');
+        setResult(null);
+        setLoading(false);
+        setSearchPerformed(true);
+        return;
+      }
+
+      if (data && data.status === API_STATUS.SUCCESS) {
         if (data.data?.length > 0) {
           setResult(data);
           setLastUpdated(data.lastUpdated);
@@ -88,37 +110,39 @@ export default function Home() {
         try {
           await fetchSearchHistory();
         } catch (err) {
-          console.error('Error updating history after search:', err);
+          try {
+            console.log('History update error:', {
+              error: err instanceof Error ? err.message : String(err)
+            });
+          } catch (logError) {
+            console.log('Failed to log history error');
+          }
         }
       } else {
-        // Log the complete error response
-        console.error('API Error Response:', {
-          responseStatus: response.status,
-          apiStatus: data.status,
-          message: data.message,
-          error: data.error,
-          data: data
-        });
-
-        let errorMessage = 'Hệ thống đang nâng cấp, vui lòng thử lại sau';
-        if (data.message) {
-          errorMessage = data.message;
-        } else if (data.error) {
-          errorMessage = data.error;
+        try {
+          console.log('API Error:', {
+            status: response.status,
+            ok: response.ok,
+            hasData: !!data,
+            message: data?.message || 'Unknown error'
+          });
+        } catch (logError) {
+          console.log('Failed to log API error');
         }
 
-        toast.error(errorMessage);
+        toast.error(data?.message || 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau');
         setResult(null);
       }
     } catch (error) {
-      // Log the complete error object
-      console.error('Search Error:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      try {
+        console.log('Request error:', {
+          message: error instanceof Error ? error.message : String(error)
+        });
+      } catch (logError) {
+        console.log('Failed to log request error');
+      }
       
-      toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
+      toast.error('Hệ thống đang gặp sự cố. Vui lòng thử lại sau');
       setResult(null);
     } finally {
       setSearchPerformed(true);

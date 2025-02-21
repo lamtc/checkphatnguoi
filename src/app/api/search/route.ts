@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { API_STATUS, API_MESSAGES } from '@/config/api';
-import { PROXY_URL } from '@/config/proxy';
+import { PROXY_URL, getProxyHeaders } from '@/config/proxy';
 
 export async function POST(req: Request) {
   let userId, plateNumber;
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       "bienso": plateNumber
     });
 
-    console.log('Making API request with:', {
+    console.log('Making external API request:', {
       url: PROXY_URL,
       plateNumber,
       userId,
@@ -41,25 +41,9 @@ export async function POST(req: Request) {
     });
 
     try {
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Content-Type': 'application/json',
-        'Origin': 'https://checkphatnguoi.vn',
-        'Referer': 'https://checkphatnguoi.vn/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-      };
-
-      // Only add CORS headers in production
-      if (process.env.NODE_ENV === 'production') {
-        headers['Access-Control-Allow-Origin'] = '*';
-        headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
-        headers['Access-Control-Allow-Headers'] = 'Content-Type';
-      }
-
-      const response = await fetch(PROXY_URL + '/phatnguoi', {
+      const response = await fetch(PROXY_URL, {
         method: 'POST',
-        headers,
+        headers: getProxyHeaders(),
         body: raw,
         cache: 'no-store'
       });
@@ -75,8 +59,11 @@ export async function POST(req: Request) {
         throw new Error(`External API HTTP error! status: ${response.status}`);
       }
 
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+
       const text = await response.text();
-      console.log('Raw response text:', text);
+      console.log('Raw response text:', text.substring(0, 200)); // First 200 chars
 
       if (!text) {
         throw new Error('Empty response from external API');
