@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { validateLicensePlate } from '@/utils/validation';
+import { getUserId } from '@/utils/user';
 import { ViolationResponse, ViolationData } from '@/types/api';
 
 interface SearchHistoryItem {
@@ -30,7 +31,13 @@ export default function Home() {
 
   const fetchSearchHistory = async () => {
     try {
-      const response = await fetch('/api/history');
+      const userId = getUserId();
+      if (!userId) {
+        setLoadingHistory(false);
+        return;
+      }
+
+      const response = await fetch(`/api/history?userId=${userId}`);
       const data = await response.json();
       if (data.status === 1) {
         setSearchHistory(data.data);
