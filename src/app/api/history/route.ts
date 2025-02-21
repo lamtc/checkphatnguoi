@@ -4,7 +4,22 @@ import { API_STATUS, API_MESSAGES } from '@/config/api';
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json({
+        status: API_STATUS.ERROR,
+        message: API_MESSAGES.USER_REQUIRED,
+        data: null,
+        error: 'User ID is required'
+      });
+    }
+
     const searchHistory = await prisma.searchHistory.findMany({
+      where: {
+        userId: userId
+      },
       orderBy: {
         createdAt: 'desc'
       },

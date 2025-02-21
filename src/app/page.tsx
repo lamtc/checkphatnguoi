@@ -30,11 +30,12 @@ export default function Home() {
   }, []);
 
   const fetchSearchHistory = async () => {
-    if (!getUserId()) return;
+    const userId = getUserId();
+    if (!userId) return;
     
     setLoadingHistory(true);
     try {
-      const response = await fetch('/api/history', {
+      const response = await fetch(`/api/history?userId=${encodeURIComponent(userId)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
