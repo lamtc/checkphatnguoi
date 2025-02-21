@@ -37,7 +37,9 @@ export default function Home() {
         return;
       }
 
+      setLoadingHistory(true);
       const response = await fetch(`/api/history?userId=${userId}`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch history');
       }
@@ -84,6 +86,8 @@ export default function Home() {
       // Format license plate exactly as original
       const formattedPlateNumber = plateNumber.replace(/[\s\-\.]/g, '').toUpperCase();
       
+      console.log('Submitting search for:', formattedPlateNumber);
+      
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: {
@@ -100,31 +104,38 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log('Search response:', data);
       
       if (data.status === API_STATUS.SUCCESS) {
-        const len = data.data?.length || 0;
-        
-        if (len > 0) {
+        if (data.data?.length > 0) {
           setResult(data);
           setLastUpdated(data.lastUpdated);
-          // Refresh history after successful search
-          await fetchSearchHistory();
         } else {
           setResult(null);
+          toast.success('Không tìm thấy thông tin vi phạm');
         }
-        setSearchPerformed(true);
       } else {
-        console.error('API Error:', data);
-        toast.error(data.message || 'Không tìm thấy thông tin vi phạm');
+        // Log the actual error response
+        console.error('API Error:', {
+          status: data.status,
+          message: data.message,
+          error: data.error
+        });
+        toast.error(data.message || 'Hệ thống đang nâng cấp, vui lòng thử lại sau');
         setResult(null);
-        setSearchPerformed(true);
       }
+
+      // Always fetch search history after any search attempt
+      await fetchSearchHistory();
+
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Search Error:', error);
       toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
       setResult(null);
-      setSearchPerformed(true);
+      // Still fetch history even if search failed
+      await fetchSearchHistory();
     } finally {
+      setSearchPerformed(true);
       setLoading(false);
     }
   };
@@ -208,55 +219,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Search History */}
-          <div className="card mb-4">
-            <div className="card-body">
-              <h5 className="card-title mb-4">Lịch sử tra cứu</h5>
-              
-              {loadingHistory ? (
-                <div className="text-center py-3">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Đang tải...</span>
-                  </div>
-                </div>
-              ) : searchHistory.length > 0 ? (
-                <div className="table-responsive">
-                  <table className="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>Biển số</th>
-                        <th>Thời gian</th>
-                        <th>Kết quả</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {searchHistory.map((item) => (
-                        <tr key={item.id}>
-                          <td>{item.plateNumber}</td>
-                          <td>{formatDate(item.createdAt)}</td>
-                          <td>
-                            {item.hasResults ? (
-                              <span className="text-success">Có vi phạm</span>
-                            ) : (
-                              <span className="text-muted">Không có vi phạm</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center text-muted py-3">
-                  Chưa có lịch sử tra cứu nào
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Results */}
           {searchPerformed && (
-            <div className="card">
+            <div className="card mb-4">
               <div className="card-body">
                 {result && result.status === API_STATUS.SUCCESS && result.data?.length > 0 ? (
                   <>
@@ -357,7 +322,53 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
+
+          {/* Search History */}
+          <div className="card mb-4">
+            <div className="card-body">
+              <h5 className="card-title mb-4">Lịch sử tra cứu</h5>
+              
+              {loadingHistory ? (
+                <div className="text-center py-3">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Đang tải...</span>
+                  </div>
+                </div>
+              ) : searchHistory.length > 0 ? (
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Biển số</th>
+                        <th>Thời gian</th>
+                        <th>Kết quả</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchHistory.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.plateNumber}</td>
+                          <td>{formatDate(item.createdAt)}</td>
+                          <td>
+                            {item.hasResults ? (
+                              <span className="text-success">Có vi phạm</span>
+                            ) : (
+                              <span className="text-muted">Không có vi phạm</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center text-muted py-3">
+                  Chưa có lịch sử tra cứu nào
+                </div>
+              )}
+            </div>
+          </div>
+       </div>
       </div>
 
       {/* Footer */}

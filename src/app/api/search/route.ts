@@ -3,21 +3,39 @@ import prisma from '@/lib/prisma';
 import { API_ENDPOINTS, API_STATUS, API_MESSAGES } from '@/config/api';
 
 export async function POST(req: Request) {
+  let userId, plateNumber;
+  
   try {
     const body = await req.json();
-    const { plateNumber, userId } = body;
+    ({ plateNumber, userId } = body);
 
     if (!plateNumber) {
-      return NextResponse.json({ error: API_MESSAGES.INVALID_LICENSE }, { status: 400 });
+      return NextResponse.json({
+        status: API_STATUS.ERROR,
+        message: API_MESSAGES.INVALID_LICENSE,
+        data: null,
+        data_info: null
+      });
     }
 
     if (!userId) {
-      return NextResponse.json({ error: API_MESSAGES.USER_REQUIRED }, { status: 400 });
+      return NextResponse.json({
+        status: API_STATUS.ERROR,
+        message: API_MESSAGES.USER_REQUIRED,
+        data: null,
+        data_info: null
+      });
     }
 
     // Make API call to checkphatnguoi.vn with exact same format as original
     const raw = JSON.stringify({
       "bienso": plateNumber
+    });
+
+    console.log('Making API request with:', {
+      url: API_ENDPOINTS.VIOLATION_SEARCH,
+      plateNumber,
+      userId
     });
 
     const response = await fetch(API_ENDPOINTS.VIOLATION_SEARCH, {
@@ -38,25 +56,40 @@ export async function POST(req: Request) {
       credentials: 'omit'
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    console.log('API Response status:', response.status);
+    
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing API response:', parseError);
+      throw new Error('Invalid API response format');
     }
 
-    const data = await response.json();
+    console.log('API Response data:', data);
 
-    // Only save to history if we got a successful response
-    if (data.status === API_STATUS.SUCCESS) {
-      try {
-        await prisma.searchHistory.create({
-          data: {
-            userId,
-            plateNumber,
-            hasResults: data.data?.length > 0
-          }
-        });
-      } catch (dbError) {
-        console.error('Error saving search history:', dbError);
-      }
+    if (!response.ok || data.status === API_STATUS.ERROR) {
+      return NextResponse.json({
+        status: API_STATUS.ERROR,
+        message: data.message || API_MESSAGES.SYSTEM_ERROR,
+        data: null,
+        data_info: null,
+        error: `HTTP error! status: ${response.status}`
+      });
+    }
+
+    // Always save to history
+    try {
+      const searchRecord = await prisma.searchHistory.create({
+        data: {
+          userId,
+          plateNumber,
+          hasResults: data.status === API_STATUS.SUCCESS && (data.data?.length || 0) > 0
+        }
+      });
+      console.log('Created search record:', searchRecord);
+    } catch (dbError) {
+      console.error('Error saving search history:', dbError);
     }
 
     // Add last updated time in exact same format as original
@@ -70,16 +103,48 @@ export async function POST(req: Request) {
       hour: "2-digit" 
     });
 
+    // Calculate violation summary
+    const violations = data.data || [];
+    const total = violations.length;
+    const daxuphat = violations.filter(v => v['Trạng thái']?.includes('Đã xử phạt')).length;
+    const chuaxuphat = total - daxuphat;
+
     return NextResponse.json({
-      ...data,
+      status: API_STATUS.SUCCESS,
+      message: data.data?.length ? undefined : API_MESSAGES.NO_VIOLATIONS,
+      data: data.data || [],
+      data_info: {
+        total,
+        daxuphat,
+        chuaxuphat
+      },
       lastUpdated: now
     });
 
   } catch (error) {
     console.error('API Error:', error);
+    
+    // Save failed search to history if we have the user info
+    if (userId && plateNumber) {
+      try {
+        await prisma.searchHistory.create({
+          data: {
+            userId,
+            plateNumber,
+            hasResults: false
+          }
+        });
+      } catch (dbError) {
+        console.error('Error saving failed search to history:', dbError);
+      }
+    }
+
     return NextResponse.json({ 
       status: API_STATUS.ERROR, 
-      message: API_MESSAGES.SYSTEM_ERROR
+      message: API_MESSAGES.SYSTEM_ERROR,
+      data: null,
+      data_info: null,
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
