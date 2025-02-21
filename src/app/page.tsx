@@ -29,39 +29,6 @@ export default function Home() {
     fetchSearchHistory();
   }, []);
 
-  const fetchSearchHistory = async () => {
-    const userId = getUserId();
-    if (!userId) return;
-    
-    setLoadingHistory(true);
-    try {
-      const response = await fetch(`/api/history?userId=${encodeURIComponent(userId)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.status === API_STATUS.SUCCESS) {
-        setSearchHistory(data.data || []);
-      } else {
-        console.error('History fetch error:', data);
-        setSearchHistory([]);
-      }
-    } catch (error) {
-      console.error('Error fetching history:', error);
-      setSearchHistory([]);
-      // Don't show error toast for history fetch failures
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -101,12 +68,12 @@ export default function Home() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
-      console.log('Search response:', data);
+      console.log('Search API Response:', {
+        status: response.status,
+        ok: response.ok,
+        data: data
+      });
       
       if (data.status === API_STATUS.SUCCESS) {
         if (data.data?.length > 0) {
@@ -116,26 +83,78 @@ export default function Home() {
           setResult(null);
           toast.success('Không tìm thấy thông tin vi phạm');
         }
-        // Only fetch history on successful search
-        await fetchSearchHistory().catch(err => {
+
+        // Always fetch history on any successful API response
+        try {
+          await fetchSearchHistory();
+        } catch (err) {
           console.error('Error updating history after search:', err);
-        });
+        }
       } else {
-        console.error('API Error:', {
-          status: data.status,
+        // Log the complete error response
+        console.error('API Error Response:', {
+          responseStatus: response.status,
+          apiStatus: data.status,
           message: data.message,
-          error: data.error
+          error: data.error,
+          data: data
         });
-        toast.error(data.message || 'Hệ thống đang nâng cấp, vui lòng thử lại sau');
+
+        let errorMessage = 'Hệ thống đang nâng cấp, vui lòng thử lại sau';
+        if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        }
+
+        toast.error(errorMessage);
         setResult(null);
       }
     } catch (error) {
-      console.error('Search Error:', error);
+      // Log the complete error object
+      console.error('Search Error:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
       toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
       setResult(null);
     } finally {
       setSearchPerformed(true);
       setLoading(false);
+    }
+  };
+
+  const fetchSearchHistory = async () => {
+    const userId = getUserId();
+    if (!userId) return;
+    
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(`/api/history?userId=${encodeURIComponent(userId)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.status === API_STATUS.SUCCESS) {
+        setSearchHistory(data.data || []);
+      } else {
+        console.error('History fetch error:', data);
+        setSearchHistory([]);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+      setSearchHistory([]);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
