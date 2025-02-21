@@ -41,14 +41,10 @@ export async function POST(req: Request) {
     });
 
     try {
-      const requestBody = process.env.NODE_ENV === 'production' 
-        ? JSON.stringify({ data: raw })  // For allorigins POST endpoint
-        : raw;
-
       const response = await fetch(PROXY_URL, {
         method: 'POST',
         headers: getProxyHeaders(),
-        body: requestBody,
+        body: raw,
         cache: 'no-store'
       });
 
@@ -70,9 +66,15 @@ export async function POST(req: Request) {
         throw new Error('Empty response from external API');
       }
 
-      const data = parseProxyResponse(text);
-      if (!data) {
-        throw new Error('Failed to parse API response');
+      let data;
+      try {
+        data = parseProxyResponse(text);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', {
+          error: parseError,
+          text: text.substring(0, 200)
+        });
+        throw new Error('Invalid JSON response from external API');
       }
 
       console.log('Parsed API Response data:', data);
