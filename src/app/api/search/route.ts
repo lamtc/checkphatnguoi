@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { API_ENDPOINTS, API_STATUS, API_MESSAGES } from '@/config/api';
+import { API_STATUS, API_MESSAGES } from '@/config/api';
+import { PROXY_URL } from '@/config/proxy';
 
 export async function POST(req: Request) {
   let userId, plateNumber;
@@ -33,31 +34,34 @@ export async function POST(req: Request) {
     });
 
     console.log('Making API request with:', {
-      url: API_ENDPOINTS.VIOLATION_SEARCH,
+      url: PROXY_URL,
       plateNumber,
-      userId
+      userId,
+      environment: process.env.NODE_ENV
     });
 
     try {
-      const response = await fetch(API_ENDPOINTS.VIOLATION_SEARCH, {
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Content-Type': 'application/json',
+        'Origin': 'https://checkphatnguoi.vn',
+        'Referer': 'https://checkphatnguoi.vn/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+      };
+
+      // Only add CORS headers in production
+      if (process.env.NODE_ENV === 'production') {
+        headers['Access-Control-Allow-Origin'] = '*';
+        headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+        headers['Access-Control-Allow-Headers'] = 'Content-Type';
+      }
+
+      const response = await fetch(PROXY_URL + '/phatnguoi', {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Content-Type': 'application/json',
-          'Origin': 'https://checkphatnguoi.vn',
-          'Referer': 'https://checkphatnguoi.vn/',
-          'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"Windows"',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-site',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-        },
+        headers,
         body: raw,
-        cache: 'no-store',
-        credentials: 'omit'
+        cache: 'no-store'
       });
 
       console.log('External API Response:', {

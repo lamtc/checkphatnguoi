@@ -11,11 +11,10 @@ export const API_STATUS = {
 
 // API error messages
 export const API_MESSAGES = {
-  SYSTEM_ERROR: 'Hệ thống đang nâng cấp, vui lòng thử lại sau',
   INVALID_LICENSE: 'Biển số không hợp lệ',
   USER_REQUIRED: 'Không thể xác định người dùng',
   NO_VIOLATIONS: 'Không tìm thấy thông tin vi phạm',
-  NETWORK_ERROR: 'Lỗi kết nối, vui lòng thử lại sau'
+  SYSTEM_ERROR: 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.'
 } as const;
 
 export const MAX_HISTORY_ITEMS = 10;
