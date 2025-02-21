@@ -12,6 +12,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: API_MESSAGES.USER_REQUIRED }, { status: 400 });
     }
 
+    console.log('Fetching history for userId:', userId); // Debug log
+
     const history = await prisma.searchHistory.findMany({
       where: {
         userId: userId
@@ -22,12 +24,14 @@ export async function GET(req: Request) {
       take: MAX_HISTORY_ITEMS
     });
 
+    console.log('Found history items:', history.length); // Debug log
+
     return NextResponse.json({
       status: API_STATUS.SUCCESS,
       data: history
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error fetching history:', error);
     return NextResponse.json({ 
       status: API_STATUS.ERROR, 
       message: API_MESSAGES.SYSTEM_ERROR,

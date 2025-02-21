@@ -28,14 +28,21 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
-    // Record search in history
-    await prisma.searchHistory.create({
-      data: {
-        userId,
-        plateNumber,
-        hasResults: data.status === API_STATUS.SUCCESS && data.data?.length > 0
+    // Only save to history if the API call was successful
+    if (data.status === API_STATUS.SUCCESS) {
+      try {
+        await prisma.searchHistory.create({
+          data: {
+            userId,
+            plateNumber,
+            hasResults: data.data?.length > 0
+          }
+        });
+      } catch (dbError) {
+        console.error('Error saving search history:', dbError);
+        // Continue with the response even if history saving fails
       }
-    });
+    }
 
     // Add last updated time
     const now = new Date().toLocaleString('vi-VN', { 
@@ -57,8 +64,7 @@ export async function POST(req: Request) {
     console.error('Error:', error);
     return NextResponse.json({ 
       status: API_STATUS.ERROR, 
-      message: API_MESSAGES.SYSTEM_ERROR,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: API_MESSAGES.SYSTEM_ERROR
     });
   }
 }

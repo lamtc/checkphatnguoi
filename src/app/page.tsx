@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { validateLicensePlate } from '@/utils/validation';
 import { getUserId } from '@/utils/user';
 import { ViolationResponse, ViolationData } from '@/types/api';
+import { API_STATUS } from '@/config/api';
 
 interface SearchHistoryItem {
   id: number;
@@ -24,7 +25,6 @@ export default function Home() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  // Fetch search history on component mount
   useEffect(() => {
     fetchSearchHistory();
   }, []);
@@ -39,8 +39,11 @@ export default function Home() {
 
       const response = await fetch(`/api/history?userId=${userId}`);
       const data = await response.json();
-      if (data.status === 1) {
+      
+      if (data.status === API_STATUS.SUCCESS && Array.isArray(data.data)) {
         setSearchHistory(data.data);
+      } else {
+        toast.error('Không thể tải lịch sử tra cứu');
       }
     } catch (error) {
       console.error('Error fetching search history:', error);
@@ -53,20 +56,17 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Clear previous states
     setValidationError(null);
     setResult(null);
     setSearchPerformed(false);
     setLastUpdated(null);
     
-    // Get user ID
     const userId = getUserId();
     if (!userId) {
       toast.error('Không thể xác định người dùng');
       return;
     }
 
-    // Validate license plate
     const validation = validateLicensePlate(plateNumber);
     if (!validation.isValid) {
       setValidationError(validation.error || 'Biển số không hợp lệ');
@@ -76,7 +76,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const formattedPlateNumber = plateNumber.replace(/ /g, '').replace(/-/g, '').replace(/\./g, '').toUpperCase();
+      const formattedPlateNumber = plateNumber.replace(/[\s\-\.]/g, '').toUpperCase();
       
       const response = await fetch('/api/search', {
         method: 'POST',
@@ -91,26 +91,24 @@ export default function Home() {
 
       const data: ViolationResponse = await response.json();
       
-      if (data.status === 1) {
+      if (data.status === API_STATUS.SUCCESS) {
         setResult(data);
         setLastUpdated(data.lastUpdated);
-        // Refresh search history after successful search
-        fetchSearchHistory();
+        await fetchSearchHistory();
       } else {
         toast.error(data.message || 'Không tìm thấy thông tin vi phạm');
       }
       setSearchPerformed(true);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Đã xảy ra lỗi khi tra cứu. Vui lòng thử lại sau.');
+      toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPlateNumber(value);
+    setPlateNumber(e.target.value);
     setValidationError(null);
   };
 
@@ -126,7 +124,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-vh-100 d-flex flex-column">
+    <main className="min-vh-100 d-flex flex-column">
       <Toaster position="top-right" />
       
       {/* Header */}
@@ -140,16 +138,16 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow-1 py-4">
+      <div className="flex-grow-1 py-4">
         <div className="container">
           {/* Search Form */}
           <div className="card mb-4">
             <div className="card-body">
               <form onSubmit={handleSubmit}>
                 <div className="row align-items-end">
-                  <div className="col-auto">
+                  <div className="col">
                     <label htmlFor="plateNumber" className="form-label mb-2">Biển số xe</label>
-                    <div className="input-group has-validation">
+                    <div className="input-group">
                       <input
                         type="text"
                         id="plateNumber"
@@ -234,113 +232,111 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Results Section */}
+          {/* Results */}
           {searchPerformed && (
-            result ? (
-              <div className="card">
-                <div className="card-body">
-                  <h5 className="card-title mb-3">Kết quả tra cứu</h5>
-                  
-                  {lastUpdated && (
-                    <div className="text-muted mb-3">
-                      <small>Dữ liệu cập nhật vào lúc {lastUpdated}</small>
-                    </div>
-                  )}
-                  
-                  <div className="row g-3 mb-4">
-                    <div className="col-sm-4">
-                      <div className="card h-100">
-                        <div className="card-body text-center">
-                          <h6 className="card-subtitle mb-2 text-muted">Tổng số vi phạm</h6>
-                          <p className="card-text h4 text-primary">{result.data_info?.total || 0}</p>
+            <div className="card">
+              <div className="card-body">
+                {result && result.status === API_STATUS.SUCCESS && result.data?.length > 0 ? (
+                  <>
+                    <h5 className="card-title mb-3">Kết quả tra cứu</h5>
+                    
+                    {lastUpdated && (
+                      <div className="text-muted mb-3">
+                        <small>Dữ liệu cập nhật vào lúc {lastUpdated}</small>
+                      </div>
+                    )}
+                    
+                    <div className="row g-3 mb-4">
+                      <div className="col-sm-4">
+                        <div className="card h-100">
+                          <div className="card-body text-center">
+                            <h6 className="card-subtitle mb-2 text-muted">Tổng số vi phạm</h6>
+                            <p className="card-text h4 text-primary">{result.data_info?.total || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-sm-4">
+                        <div className="card h-100">
+                          <div className="card-body text-center">
+                            <h6 className="card-subtitle mb-2 text-muted">Đã xử phạt</h6>
+                            <p className="card-text h4 text-success">{result.data_info?.daxuphat || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-sm-4">
+                        <div className="card h-100">
+                          <div className="card-body text-center">
+                            <h6 className="card-subtitle mb-2 text-muted">Chưa xử phạt</h6>
+                            <p className="card-text h4 text-warning">{result.data_info?.chuaxuphat || 0}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="col-sm-4">
-                      <div className="card h-100">
-                        <div className="card-body text-center">
-                          <h6 className="card-subtitle mb-2 text-muted">Đã xử phạt</h6>
-                          <p className="card-text h4 text-success">{result.data_info?.daxuphat || 0}</p>
+
+                    {result.data.map((violation: ViolationData, index: number) => (
+                      <div key={index} className="card mb-3">
+                        <div className="card-body">
+                          <div className="row mb-3">
+                            <div className="col-md-3">
+                              <strong>Biển số:</strong> {violation['Biển kiểm soát']}
+                            </div>
+                            <div className="col-md-3">
+                              <strong>Loại xe:</strong> {violation['Loại phương tiện']}
+                            </div>
+                            <div className="col-md-3">
+                              <strong>Màu biển:</strong> {violation['Mau biển']}
+                            </div>
+                            <div className="col-md-3">
+                              <strong>Nền màu:</strong> {violation['Nền mầu']}
+                            </div>
+                          </div>
+
+                          <div className="mb-2">
+                            <strong>Thời gian vi phạm:</strong>
+                            <div>{violation['Thời gian vi phạm']}</div>
+                          </div>
+
+                          <div className="mb-2">
+                            <strong>Địa điểm vi phạm:</strong>
+                            <div>{violation['Địa điểm vi phạm']}</div>
+                          </div>
+
+                          <div className="mb-2">
+                            <strong>Hành vi vi phạm:</strong>
+                            <div>{violation['Hành vi vi phạm']}</div>
+                          </div>
+
+                          <div className="mb-2">
+                            <strong>Trạng thái:</strong>
+                            <div>{violation['Trạng thái']}</div>
+                          </div>
+
+                          <div className="mb-2">
+                            <strong>Đơn vị phát hiện vi phạm:</strong>
+                            <div>{violation['Đơn vị phát hiện vi phạm']}</div>
+                          </div>
+
+                          <div>
+                            <strong>Nơi giải quyết vụ việc:</strong>
+                            <div>{Array.isArray(violation['Nơi giải quyết vụ việc']) 
+                              ? violation['Nơi giải quyết vụ việc'].join(', ') 
+                              : violation['Nơi giải quyết vụ việc']}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="col-sm-4">
-                      <div className="card h-100">
-                        <div className="card-body text-center">
-                          <h6 className="card-subtitle mb-2 text-muted">Chưa xử phạt</h6>
-                          <p className="card-text h4 text-warning">{result.data_info?.chuaxuphat || 0}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {result.data?.map((violation: ViolationData, index: number) => (
-                    <div key={index} className="card mb-3">
-                      <div className="card-body">
-                        <div className="row mb-3">
-                          <div className="col-md-3">
-                            <strong>Biển số:</strong> {violation['Biển kiểm soát']}
-                          </div>
-                          <div className="col-md-3">
-                            <strong>Loại xe:</strong> {violation['Loại phương tiện']}
-                          </div>
-                          <div className="col-md-3">
-                            <strong>Màu biển:</strong> {violation['Mau biển']}
-                          </div>
-                          <div className="col-md-3">
-                            <strong>Nền màu:</strong> {violation['Nền mầu']}
-                          </div>
-                        </div>
-
-                        <div className="mb-2">
-                          <strong>Thời gian vi phạm:</strong>
-                          <div>{violation['Thời gian vi phạm']}</div>
-                        </div>
-
-                        <div className="mb-2">
-                          <strong>Địa điểm vi phạm:</strong>
-                          <div>{violation['Địa điểm vi phạm']}</div>
-                        </div>
-
-                        <div className="mb-2">
-                          <strong>Hành vi vi phạm:</strong>
-                          <div>{violation['Hành vi vi phạm']}</div>
-                        </div>
-
-                        <div className="mb-2">
-                          <strong>Trạng thái:</strong>
-                          <div>{violation['Trạng thái']}</div>
-                        </div>
-
-                        <div className="mb-2">
-                          <strong>Đơn vị phát hiện vi phạm:</strong>
-                          <div>{violation['Đơn vị phát hiện vi phạm']}</div>
-                        </div>
-
-                        <div>
-                          <strong>Nơi giải quyết vụ việc:</strong>
-                          <div>{Array.isArray(violation['Nơi giải quyết vụ việc']) 
-                            ? violation['Nơi giải quyết vụ việc'].join(', ') 
-                            : violation['Nơi giải quyết vụ việc']}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="card">
-                <div className="card-body">
+                    ))}
+                  </>
+                ) : (
                   <div className="alert alert-info mb-0" role="alert">
                     <h4 className="alert-heading">Không tìm thấy thông tin vi phạm!</h4>
                     <p className="mb-0">Không tìm thấy thông tin vi phạm giao thông cho biển số <strong>{plateNumber}</strong>.</p>
                   </div>
-                </div>
+                )}
               </div>
-            )
+            </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* Footer */}
       <footer className="py-3 text-center text-muted border-top">
@@ -348,6 +344,6 @@ export default function Home() {
           <small> {new Date().getFullYear()} Tra cứu phạt nguội. All rights reserved.</small>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
