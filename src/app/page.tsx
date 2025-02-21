@@ -89,19 +89,33 @@ export default function Home() {
         }),
       });
 
-      const data: ViolationResponse = await response.json();
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
       
       if (data.status === API_STATUS.SUCCESS) {
-        setResult(data);
-        setLastUpdated(data.lastUpdated);
-        await fetchSearchHistory();
+        const len = data.data?.length || 0;
+        
+        if (len > 0) {
+          setResult(data);
+          setLastUpdated(data.lastUpdated);
+          await fetchSearchHistory();
+        } else {
+          setResult(null);
+        }
+        setSearchPerformed(true);
       } else {
-        toast.error(data.message || 'Không tìm thấy thông tin vi phạm');
+        toast.error('Không tìm thấy thông tin vi phạm');
+        setResult(null);
+        setSearchPerformed(true);
       }
-      setSearchPerformed(true);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Hệ thống đang nâng cấp, vui lòng thử lại sau');
+      setResult(null);
+      setSearchPerformed(true);
     } finally {
       setLoading(false);
     }

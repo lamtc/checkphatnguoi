@@ -15,20 +15,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: API_MESSAGES.USER_REQUIRED }, { status: 400 });
     }
 
-    // Make API call to checkphatnguoi.vn
+    // Make API call to checkphatnguoi.vn with exact same format as original
+    const raw = JSON.stringify({
+      "bienso": plateNumber
+    });
+
     const response = await fetch(API_ENDPOINTS.VIOLATION_SEARCH, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        "bienso": plateNumber
-      })
+      body: raw
     });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
 
     const data = await response.json();
 
-    // Only save to history if the API call was successful
+    // Only save to history if we got a successful response
     if (data.status === API_STATUS.SUCCESS) {
       try {
         await prisma.searchHistory.create({
@@ -40,11 +46,10 @@ export async function POST(req: Request) {
         });
       } catch (dbError) {
         console.error('Error saving search history:', dbError);
-        // Continue with the response even if history saving fails
       }
     }
 
-    // Add last updated time
+    // Add last updated time in exact same format as original
     const now = new Date().toLocaleString('vi-VN', { 
       timeZone: "Asia/Ho_Chi_Minh", 
       year: "numeric", 
@@ -61,7 +66,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('API Error:', error);
     return NextResponse.json({ 
       status: API_STATUS.ERROR, 
       message: API_MESSAGES.SYSTEM_ERROR
